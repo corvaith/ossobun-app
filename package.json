@@ -1,0 +1,43 @@
+{
+  "name": "ossobun",
+  "version": "2.0.0",
+  "description": "Ossobun — a voice-presence (AFK) Discord bot built with discord.js v14.",
+  "author": "corvaith <https://github.com/corvaith>",
+  "type": "module",
+  "main": "src/index.js",
+  "imports": {
+    "#config/*": "./src/config/*.js",
+    "#structures/*": "./src/structures/*.js",
+    "#utils/*": "./src/utils/*.js",
+    "#services/*": "./src/services/*.js",
+    "#handlers/*": "./src/handlers/*.js",
+    "#database/*": "./src/database/*.js"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "deploy": "node src/scripts/deploy.js",
+    "clear-global": "node src/scripts/clearGlobalCommands.js",
+    "migrate": "node src/scripts/migrateJsonToSqlite.js --run",
+    "lint": "biome lint .",
+    "format": "biome format --write .",
+    "check": "biome check --write .",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@discordjs/voice": "^0.19.0",
+    "better-sqlite3": "^12.10.0",
+    "discord.js": "^14.22.1",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "allowScripts": {
+    "@biomejs/biome@1.9.4": true,
+    "better-sqlite3@12.10.0": true
+  }
+}

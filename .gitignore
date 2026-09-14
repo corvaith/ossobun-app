@@ -1,0 +1,16 @@
+node_modules/
+.env
+data/*.db
+data/*.db-shm
+data/*.db-wal
+data/self-role-panels.json
+data/auto-roles.json
+data/auto-role-tracking.json
+
+fix.md
+PROMPT.md
+SELF_ROLE_PROMPT.md
+
+npm-debug.log*
+*.log
+.DS_Store
