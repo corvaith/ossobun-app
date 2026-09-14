@@ -12,12 +12,17 @@ import {
 import { config as botConfig } from '#config/config';
 import { ICONS, ICON_IDS } from '#config/emojis';
 import {
-  FEATURE_LABELS,
+  DM_DESCRIPTION,
+  DM_LABEL,
+  FEATURE_META,
   LIMITS,
   RESET_TARGETS,
   clampInt,
   describeReset,
   formatDays,
+  formatInvites,
+  formatMessages,
+  formatRoles,
   isAdministrator,
   isSafeAutoRole,
   loadAutoRoleConfig,
@@ -46,57 +51,65 @@ async function saveConfig(config) {
   return saveAutoRoleConfig(config);
 }
 
-function featureSummary(config, feature) {
+function featureStatus(config, feature) {
   const state = config[feature];
   const roles = state.roleIds.length;
-  if (!state.enabled) return `${ICONS.failed} Disabled`;
-  if (!roles) return `${ICONS.warning} Enabled — no roles selected yet`;
+
+  if (!state.enabled) return `${ICONS.failed} Off`;
+  if (!roles) return `${ICONS.warning} On — but no roles picked yet`;
 
   switch (feature) {
     case 'join':
-      return `${ICONS.success} Enabled — ${roles} role(s) on join`;
+      return `${ICONS.success} On — gives ${formatRoles(roles)} to new members`;
     case 'timed':
-      return `${ICONS.success} Enabled — ${roles} role(s) after ${formatDays(state.days)}`;
+      return `${ICONS.success} On — gives ${formatRoles(roles)} after ${formatDays(state.days)}`;
     case 'invite':
-      return `${ICONS.success} Enabled — ${roles} role(s) at ${state.count} invite(s)`;
+      return `${ICONS.success} On — gives ${formatRoles(roles)} at ${formatInvites(state.count)}`;
     case 'activity':
-      return `${ICONS.success} Enabled — ${roles} role(s) at ${state.messages} msg / ${formatDays(state.days)}`;
+      return `${ICONS.success} On — gives ${formatRoles(roles)} at ${formatMessages(state.messages)} in ${formatDays(state.days)}`;
     default:
-      return `${ICONS.success} Enabled`;
+      return `${ICONS.success} On`;
   }
 }
 
 const FEATURE_ICONS = {
-  join: ICONS.link,
-  timed: ICONS.loading,
-  invite: ICONS.mail,
-  activity: ICONS.code,
+  join: ICONS[FEATURE_META.join.icon],
+  timed: ICONS[FEATURE_META.timed.icon],
+  invite: ICONS[FEATURE_META.invite.icon],
+  activity: ICONS[FEATURE_META.activity.icon],
 };
 
 function menuEmbed(config) {
-  return new EmbedBuilder()
-    .setColor(botConfig.colors.info)
-    .setTitle(`${ICONS.edit} Auto Role Setup`)
-    .setDescription(
+  const blocks = [FEATURE_META.join, FEATURE_META.timed, FEATURE_META.invite, FEATURE_META.activity]
+    .map((meta, index) =>
       [
-        'Configure automatic roles for this server. Pick a feature below to set it up.',
-        '',
-        `${FEATURE_ICONS.join} **1. ${FEATURE_LABELS.join}**\n${featureSummary(config, 'join')}`,
-        '',
-        `${FEATURE_ICONS.timed} **2. ${FEATURE_LABELS.timed}**\n${featureSummary(config, 'timed')}`,
-        '',
-        `${FEATURE_ICONS.invite} **3. ${FEATURE_LABELS.invite}**\n${featureSummary(config, 'invite')}`,
-        '',
-        `${FEATURE_ICONS.activity} **4. ${FEATURE_LABELS.activity}**\n${featureSummary(config, 'activity')}`,
-        '',
-        `${ICONS.mail} **5. DM notification**\n${
-          config.dmNotification
-            ? `${ICONS.success} Members are DM’d when they get a role`
-            : `${ICONS.failed} Disabled`
-        }`,
+        `${FEATURE_ICONS[FEATURES[index]]} **${index + 1}. ${meta.label}**`,
+        meta.description,
+        featureStatus(config, FEATURES[index]),
       ].join('\n')
     )
-    .setFooter({ text: 'Only administrators can change these settings.' });
+    .join('\n\n');
+
+  const dmBlock = [
+    `${ICONS.mail} **5. ${DM_LABEL}**`,
+    DM_DESCRIPTION,
+    config.dmNotification ? `${ICONS.success} On — members are notified` : `${ICONS.failed} Off`,
+  ].join('\n');
+
+  return new EmbedBuilder()
+    .setColor(botConfig.colors.info)
+    .setTitle(`${ICONS.edit} Auto Roles`)
+    .setDescription(
+      [
+        'Hand out roles automatically — no manual work needed.',
+        'Pick a rule below to set it up or change it.',
+        '',
+        blocks,
+        '',
+        dmBlock,
+      ].join('\n')
+    )
+    .setFooter({ text: 'Administrators only.' });
 }
 
 function menuRows(config) {
@@ -104,34 +117,34 @@ function menuRows(config) {
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`${PREFIX}open:join`)
-        .setLabel('1. On join')
+        .setLabel('1. Welcome')
         .setEmoji(ICON_IDS.link)
         .setStyle(config.join.enabled ? ButtonStyle.Success : ButtonStyle.Primary),
       new ButtonBuilder()
         .setCustomId(`${PREFIX}open:timed`)
-        .setLabel('2. Time-based')
+        .setLabel('2. Tenure')
         .setEmoji(ICON_IDS.loading)
         .setStyle(config.timed.enabled ? ButtonStyle.Success : ButtonStyle.Primary),
       new ButtonBuilder()
         .setCustomId(`${PREFIX}open:invite`)
-        .setLabel('3. Invite-based')
+        .setLabel('3. Invites')
         .setEmoji(ICON_IDS.mail)
         .setStyle(config.invite.enabled ? ButtonStyle.Success : ButtonStyle.Primary),
       new ButtonBuilder()
         .setCustomId(`${PREFIX}open:activity`)
-        .setLabel('4. Activity-based')
+        .setLabel('4. Activity')
         .setEmoji(ICON_IDS.code)
         .setStyle(config.activity.enabled ? ButtonStyle.Success : ButtonStyle.Primary)
     ),
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`${PREFIX}dm`)
-        .setLabel(`5. DM notification: ${config.dmNotification ? 'ON' : 'OFF'}`)
+        .setLabel(`5. DM Notice: ${config.dmNotification ? 'On' : 'Off'}`)
         .setEmoji(config.dmNotification ? ICON_IDS.success : ICON_IDS.failed)
         .setStyle(config.dmNotification ? ButtonStyle.Success : ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId(`${PREFIX}reset`)
-        .setLabel('Reset settings')
+        .setLabel('Reset')
         .setEmoji(ICON_IDS.delete)
         .setStyle(ButtonStyle.Danger)
     ),
@@ -140,29 +153,37 @@ function menuRows(config) {
 
 function featureEmbed(config, feature) {
   const state = config[feature];
+  const meta = FEATURE_META[feature];
+
   const lines = [
-    `**Status:** ${state.enabled ? `${ICONS.success} Enabled` : `${ICONS.failed} Disabled`}`,
+    meta.description,
+    '',
+    `**Status:** ${state.enabled ? `${ICONS.success} On` : `${ICONS.failed} Off`}`,
   ];
 
-  if (feature === 'timed') lines.push(`**Days required:** ${formatDays(state.days)}`);
-  if (feature === 'invite') lines.push(`**Invites required:** ${state.count}`);
+  if (feature === 'timed') {
+    lines.push(`**Waiting time:** ${formatDays(state.days)}`);
+  }
+  if (feature === 'invite') {
+    lines.push(`**Invites needed:** ${formatInvites(state.count)}`);
+  }
   if (feature === 'activity') {
-    lines.push(`**Messages required:** ${state.messages}`);
-    lines.push(`**Within:** ${formatDays(state.days)}`);
+    lines.push(`**Messages needed:** ${formatMessages(state.messages)}`);
+    lines.push(`**Counted within:** ${formatDays(state.days)}`);
   }
 
-  lines.push('', `**Roles (${state.roleIds.length}):**`);
+  lines.push('', `**Roles to give (${state.roleIds.length})**`);
   if (state.roleIds.length) {
     for (const id of state.roleIds) {
       lines.push(`${ICONS.check} ${roleLabel(config, id)}`);
     }
   } else {
-    lines.push('_No roles selected._');
+    lines.push(`${ICONS.warning} None yet — use **Pick roles** below.`);
   }
 
   return new EmbedBuilder()
     .setColor(botConfig.colors.info)
-    .setTitle(FEATURE_LABELS[feature])
+    .setTitle(`${FEATURE_ICONS[feature]} ${meta.label}`)
     .setDescription(lines.join('\n'));
 }
 
@@ -171,28 +192,43 @@ function roleLabel(config, id) {
 }
 
 function featureRows(config, feature) {
+  const on = config[feature].enabled;
+
   const rows = [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`${PREFIX}toggle:${feature}`)
-        .setLabel(config[feature].enabled ? 'Disable' : 'Enable')
-        .setStyle(config[feature].enabled ? ButtonStyle.Danger : ButtonStyle.Success),
+        .setLabel(on ? 'Turn off' : 'Turn on')
+        .setEmoji(on ? ICON_IDS.failed : ICON_IDS.success)
+        .setStyle(on ? ButtonStyle.Danger : ButtonStyle.Success),
       new ButtonBuilder()
         .setCustomId(`${PREFIX}roles:${feature}`)
-        .setLabel('Set roles')
+        .setLabel('Pick roles')
+        .setEmoji(ICON_IDS.search)
         .setStyle(ButtonStyle.Primary),
       new ButtonBuilder()
         .setCustomId(`${PREFIX}clear:${feature}`)
         .setLabel('Clear roles')
+        .setEmoji(ICON_IDS.delete)
         .setStyle(ButtonStyle.Secondary)
     ),
   ];
 
-  if (feature === 'timed' || feature === 'invite') {
+  if (feature === 'timed') {
     rows[0].addComponents(
       new ButtonBuilder()
-        .setCustomId(`${PREFIX}threshold:${feature}`)
-        .setLabel(feature === 'invite' ? 'Set invites' : 'Set days')
+        .setCustomId(`${PREFIX}threshold:timed`)
+        .setLabel('Set days')
+        .setEmoji(ICON_IDS.edit)
+        .setStyle(ButtonStyle.Secondary)
+    );
+  }
+  if (feature === 'invite') {
+    rows[0].addComponents(
+      new ButtonBuilder()
+        .setCustomId(`${PREFIX}threshold:invite`)
+        .setLabel('Set invites')
+        .setEmoji(ICON_IDS.edit)
         .setStyle(ButtonStyle.Secondary)
     );
   }
@@ -200,7 +236,8 @@ function featureRows(config, feature) {
     rows[0].addComponents(
       new ButtonBuilder()
         .setCustomId(`${PREFIX}threshold:activity`)
-        .setLabel('Set requirements')
+        .setLabel('Set limits')
+        .setEmoji(ICON_IDS.edit)
         .setStyle(ButtonStyle.Secondary)
     );
   }
@@ -209,7 +246,7 @@ function featureRows(config, feature) {
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`${PREFIX}back`)
-        .setLabel('Back to menu')
+        .setLabel('Back')
         .setStyle(ButtonStyle.Secondary)
     )
   );
@@ -240,25 +277,26 @@ async function showResetPicker(interaction, edit = false) {
     embeds: [
       new EmbedBuilder()
         .setColor(botConfig.colors.error)
-        .setTitle('Reset Auto Role Settings')
+        .setTitle(`${ICONS.delete} Reset Settings`)
         .setDescription(
           [
-            'Pick which settings you want to reset. Anything you leave unselected stays untouched.',
+            'Choose what you want to put back to its default.',
+            'Anything you leave unselected stays exactly as it is.',
             '',
             ...describeReset(config, RESET_KEYS),
             '',
             active.length
-              ? `Currently configured: **${active.map((key) => RESET_TARGETS[key]).join(', ')}**`
-              : 'Nothing is configured yet.',
+              ? `${ICONS.warning} Currently set up: **${active.map((key) => RESET_TARGETS[key]).join(', ')}**`
+              : `${ICONS.info} Nothing is set up yet.`,
           ].join('\n')
         )
-        .setFooter({ text: 'You will be asked to confirm before anything is reset.' }),
+        .setFooter({ text: 'You will be asked to confirm first.' }),
     ],
     components: [
       new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
           .setCustomId(`${PREFIX}resetpick`)
-          .setPlaceholder('Choose settings to reset')
+          .setPlaceholder('Pick what to reset')
           .setMinValues(1)
           .setMaxValues(RESET_KEYS.length)
           .addOptions(
@@ -266,8 +304,8 @@ async function showResetPicker(interaction, edit = false) {
               label: RESET_TARGETS[key],
               value: key,
               description: config[key]?.roleIds?.length
-                ? `${config[key].roleIds.length} role(s) configured`
-                : 'No roles configured',
+                ? `${formatRoles(config[key].roleIds.length)} set up`
+                : 'Nothing set up',
             }))
           )
       ),
@@ -291,14 +329,14 @@ async function showResetConfirm(interaction, keys) {
     embeds: [
       new EmbedBuilder()
         .setColor(botConfig.colors.error)
-        .setTitle('Confirm Reset')
+        .setTitle(`${ICONS.warning} Are You Sure?`)
         .setDescription(
           [
-            'These settings will be reset to their defaults:',
+            'These will go back to their defaults:',
             '',
             ...describeReset(config, keys),
             '',
-            '**This cannot be undone.**',
+            `${ICONS.failed} **This cannot be undone.**`,
           ].join('\n')
         ),
     ],
@@ -306,11 +344,13 @@ async function showResetConfirm(interaction, keys) {
       new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId(`${PREFIX}resetok:${keys.join('|')}`)
-          .setLabel('Yes, reset them')
+          .setLabel('Yes, reset')
+          .setEmoji(ICON_IDS.delete)
           .setStyle(ButtonStyle.Danger),
         new ButtonBuilder()
           .setCustomId(`${PREFIX}resetcancel`)
-          .setLabel('No, keep them')
+          .setLabel('No, keep it')
+          .setEmoji(ICON_IDS.failed)
           .setStyle(ButtonStyle.Secondary)
       ),
     ],
@@ -343,12 +383,12 @@ function thresholdModal(feature, config) {
   if (feature === 'invite') {
     return new ModalBuilder()
       .setCustomId(`${PREFIX}threshold:invite`)
-      .setTitle('Invites required')
+      .setTitle('Invites needed')
       .addComponents(
         new ActionRowBuilder().addComponents(
           new TextInputBuilder()
             .setCustomId('value')
-            .setLabel(`Invites needed (${LIMITS.inviteCount.min}-${LIMITS.inviteCount.max})`)
+            .setLabel(`How many invites (${LIMITS.inviteCount.min}-${LIMITS.inviteCount.max})`)
             .setStyle(TextInputStyle.Short)
             .setRequired(true)
             .setValue(String(config.invite.count))
@@ -358,7 +398,7 @@ function thresholdModal(feature, config) {
   if (feature === 'activity') {
     return new ModalBuilder()
       .setCustomId(`${PREFIX}threshold:activity`)
-      .setTitle('Activity requirements')
+      .setTitle('Activity limits')
       .addComponents(
         new ActionRowBuilder().addComponents(
           new TextInputBuilder()
@@ -373,7 +413,9 @@ function thresholdModal(feature, config) {
         new ActionRowBuilder().addComponents(
           new TextInputBuilder()
             .setCustomId('days')
-            .setLabel(`Within days (${LIMITS.activityDays.min}-${LIMITS.activityDays.max})`)
+            .setLabel(
+              `Counted over how many days (${LIMITS.activityDays.min}-${LIMITS.activityDays.max})`
+            )
             .setStyle(TextInputStyle.Short)
             .setRequired(true)
             .setValue(String(config.activity.days))
@@ -382,12 +424,12 @@ function thresholdModal(feature, config) {
   }
   return new ModalBuilder()
     .setCustomId(`${PREFIX}threshold:timed`)
-    .setTitle('Days required')
+    .setTitle('Days to wait')
     .addComponents(
       new ActionRowBuilder().addComponents(
         new TextInputBuilder()
           .setCustomId('value')
-          .setLabel(`Days in server (${LIMITS.timedDays.min}-${LIMITS.timedDays.max})`)
+          .setLabel(`Days in the server (${LIMITS.timedDays.min}-${LIMITS.timedDays.max})`)
           .setStyle(TextInputStyle.Short)
           .setRequired(true)
           .setValue(String(config.timed.days))
@@ -398,7 +440,7 @@ function thresholdModal(feature, config) {
 export async function startAutoRoleCommand(interaction) {
   if (!admin(interaction)) {
     return interaction.reply({
-      content: 'Administrator permission is required.',
+      content: `${ICONS.lock} Only administrators can change auto roles.`,
       ephemeral: true,
       allowedMentions: mentions,
     });
@@ -414,7 +456,7 @@ export async function handleAutoRoleInteraction(interaction) {
   try {
     if (!admin(interaction)) {
       const payload = {
-        content: 'Administrator permission is required.',
+        content: `${ICONS.lock} Only administrators can change auto roles.`,
         ephemeral: true,
         allowedMentions: mentions,
       };
@@ -430,7 +472,7 @@ export async function handleAutoRoleInteraction(interaction) {
   } catch (error) {
     if (isStale(error)) return true;
     const payload = {
-      content: error.message || 'Auto-role operation failed.',
+      content: `${ICONS.failed} ${error.message || 'That action did not work.'}`,
       ephemeral: true,
       allowedMentions: mentions,
     };
@@ -466,10 +508,10 @@ async function handleButton(interaction) {
       embeds: [
         new EmbedBuilder()
           .setColor(botConfig.colors.success)
-          .setTitle('Settings Reset')
+          .setTitle(`${ICONS.success} Reset Complete`)
           .setDescription(
             [
-              'Reset to defaults:',
+              'Back to defaults:',
               '',
               ...keys.map((key) => `${ICONS.delete} ${RESET_TARGETS[key]}`),
             ].join('\n')
@@ -479,7 +521,7 @@ async function handleButton(interaction) {
         new ActionRowBuilder().addComponents(
           new ButtonBuilder()
             .setCustomId(`${PREFIX}back`)
-            .setLabel('Back to menu')
+            .setLabel('Back')
             .setStyle(ButtonStyle.Secondary)
         ),
       ],
@@ -519,7 +561,7 @@ async function handleButton(interaction) {
         new ActionRowBuilder().addComponents(
           new RoleSelectMenuBuilder()
             .setCustomId(`${PREFIX}saveroles:${payload}`)
-            .setPlaceholder('Select roles to grant')
+            .setPlaceholder('Pick the roles to give')
             .setMinValues(1)
             .setMaxValues(25)
         ),
@@ -573,17 +615,22 @@ async function handleRoleSelect(interaction) {
   await saveConfig(config);
   await decorateRoleNames(config, interaction.guild);
 
-  const rejectedNote = rejected.length
-    ? `\n\nSkipped ${rejected.length} unsafe role(s): ${rejected.map((r) => r.name).join(', ')}`
+  const note = rejected.length
+    ? `${ICONS.warning} Skipped ${formatRoles(rejected.length)} the bot cannot manage: ${rejected.map((role) => role.name).join(', ')}`
     : '';
 
-  await interaction.update({
+  return interaction.update({
     embeds: [
       new EmbedBuilder()
         .setColor(botConfig.colors.info)
-        .setTitle(FEATURE_LABELS[feature])
+        .setTitle(`${FEATURE_ICONS[feature]} ${FEATURE_META[feature].label}`)
         .setDescription(
-          `Saved **${safe.length}** role(s) for ${FEATURE_LABELS[feature]}.${rejectedNote}`
+          [
+            `${ICONS.success} Saved ${formatRoles(safe.length)}.`,
+            '',
+            ...safe.map((role) => `${ICONS.check} ${role.name}`),
+            note,
+          ].join('\n')
         ),
     ],
     components: featureRows(config, feature),

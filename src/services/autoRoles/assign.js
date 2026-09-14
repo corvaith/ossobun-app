@@ -48,13 +48,13 @@ export async function grantRoles(
 export async function notifyMember(member, roleNames, reason) {
   const list = roleNames.map((name) => `${ICONS.success} **${name}**`).join('\n');
   const content = [
-    `You received a new role in **${member.guild.name}**!`,
+    `${ICONS.crown} **You got a new role in ${member.guild.name}!**`,
     '',
     list,
     '',
-    reason ? `Reason: ${reason}` : '',
+    reason ? `${ICONS.info} ${reason}` : '',
     '',
-    'If you think this is a mistake, contact a server administrator.',
+    'If this was not meant for you, let an administrator know.',
   ]
     .filter(Boolean)
     .join('\n');

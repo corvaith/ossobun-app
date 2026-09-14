@@ -98,15 +98,17 @@ src/
 
 `/autorole` opens an administrator-only menu with five options. All settings persist in `data/auto-roles.json` and survive restarts.
 
-| # | Feature | What it does |
-| - | ------- | ------------ |
-| 1 | **On join** | Grants the selected roles the moment a member joins the server. |
-| 2 | **Time-based** | Grants roles once a member has stayed for a configured number of days (default 7). |
-| 3 | **Invite-based** | Tracks how many members joined through each member's invite links and grants roles at a configured count (default 10). |
-| 4 | **Activity-based** | Grants roles when a member sends a configured number of messages (default 5) within a rolling window (default 7 days). |
-| 5 | **DM notification** | DMs the member whenever they receive an auto role. Toggleable. |
+| # | Rule | What it does |
+| - | ---- | ------------ |
+| 1 | **Welcome Role** | Gives the selected roles the moment someone joins the server. |
+| 2 | **Tenure Role** | Gives roles once a member has stayed for a set number of days (default 7). |
+| 3 | **Invite Reward** | Tracks how many people joined through a member's invites and grants roles at a set count (default 10). |
+| 4 | **Active Member** | Gives roles once a member sends a set number of messages (default 5) within a rolling window (default 7 days). |
+| 5 | **DM Notice** | Direct-messages the member whenever they are given a role. Toggleable. |
 
-The menu also has a **Reset settings** button. It asks which settings to reset (multi-select, so you can leave some untouched), shows exactly what will change, and requires a second confirmation before anything is written.
+Each rule screen shows what the rule does, its current settings, and the roles it will give, with buttons to turn it on/off, pick roles, clear roles, and adjust its limits.
+
+The menu also has a **Reset** button. It asks which rules to reset (multi-select, so you can leave some untouched), shows exactly what will change, and requires a second confirmation before anything is written.
 
 Notes:
 

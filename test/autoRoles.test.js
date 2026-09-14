@@ -15,6 +15,9 @@ import {
   enabledFeatures,
   findUsedInvites,
   formatDays,
+  formatInvites,
+  formatMessages,
+  formatRoles,
   hasAnyFeature,
   hasElapsed,
   normalizeConfig,
@@ -241,12 +244,28 @@ test('describeReset reports the current state of each selected setting', () => {
   const lines = describeReset(config, ['timed', 'dmNotification']);
 
   assert.equal(lines.length, 2);
-  assert.match(lines[0], /Time-based role/);
-  assert.match(lines[0], /enabled/);
-  assert.match(lines[0], /1 role\(s\)/);
-  assert.match(lines[0], /days: 14/);
-  assert.match(lines[1], /DM notification/);
-  assert.match(lines[1], /back to ON/);
+  assert.match(lines[0], /Tenure Role/);
+  assert.match(lines[0], /on/);
+  assert.match(lines[0], /1 role/);
+  assert.match(lines[0], /after 14 days/);
+  assert.match(lines[1], /DM Notice/);
+  assert.match(lines[1], /turned back on/);
+});
+
+test('describeReset marks an untouched rule as nothing to clear', () => {
+  const config = emptyConfig('guild');
+  const [line] = describeReset(config, ['invite']);
+  assert.match(line, /Invite Reward/);
+  assert.match(line, /nothing to clear/);
+});
+
+test('plural helpers read naturally at one and many', () => {
+  assert.equal(formatRoles(1), '1 role');
+  assert.equal(formatRoles(3), '3 roles');
+  assert.equal(formatMessages(1), '1 message');
+  assert.equal(formatMessages(5), '5 messages');
+  assert.equal(formatInvites(1), '1 invite');
+  assert.equal(formatInvites(10), '10 invites');
 });
 
 test('every reset target has a label', () => {

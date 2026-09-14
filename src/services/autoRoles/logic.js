@@ -5,19 +5,45 @@ import { autoRoleStore } from '#services/store';
 
 export const FEATURES = ['join', 'timed', 'invite', 'activity'];
 
+export const FEATURE_META = {
+  join: {
+    label: 'Welcome Role',
+    icon: 'link',
+    description: 'Gives a role the moment someone joins the server.',
+  },
+  timed: {
+    label: 'Tenure Role',
+    icon: 'loading',
+    description: 'Gives a role once a member has stayed for a set number of days.',
+  },
+  invite: {
+    label: 'Invite Reward',
+    icon: 'mail',
+    description: 'Gives a role once a member’s invites have brought in enough people.',
+  },
+  activity: {
+    label: 'Active Member',
+    icon: 'code',
+    description: 'Gives a role once a member has sent enough messages within a set time.',
+  },
+};
+
+export const DM_LABEL = 'DM Notice';
+export const DM_DESCRIPTION = 'Sends the member a direct message when a role is given to them.';
+
 export const FEATURE_LABELS = {
-  join: 'Auto role on join',
-  timed: 'Time-based role',
-  invite: 'Invite-based role',
-  activity: 'Activity-based role',
+  join: FEATURE_META.join.label,
+  timed: FEATURE_META.timed.label,
+  invite: FEATURE_META.invite.label,
+  activity: FEATURE_META.activity.label,
 };
 
 export const RESET_TARGETS = {
-  join: 'Auto role on join',
-  timed: 'Time-based role',
-  invite: 'Invite-based role',
-  activity: 'Activity-based role',
-  dmNotification: 'DM notification',
+  join: FEATURE_META.join.label,
+  timed: FEATURE_META.timed.label,
+  invite: FEATURE_META.invite.label,
+  activity: FEATURE_META.activity.label,
+  dmNotification: DM_LABEL,
 };
 
 export const LIMITS = {
@@ -118,19 +144,27 @@ export function resetFeatures(config, keys) {
 
 export function describeReset(config, keys) {
   return keys.map((key) => {
-    if (key === 'dmNotification') return `${ICONS.mail} **${RESET_TARGETS[key]}** — back to ON`;
+    if (key === 'dmNotification') {
+      return `${ICONS.mail} **${RESET_TARGETS[key]}** — turned back on`;
+    }
+
     const state = config[key];
     const roles = state?.roleIds?.length ?? 0;
     const detail =
       key === 'timed'
-        ? `days: ${state.days}`
+        ? `after ${formatDays(state.days)}`
         : key === 'invite'
-          ? `invites: ${state.count}`
+          ? `at ${formatInvites(state.count)}`
           : key === 'activity'
-            ? `${state.messages} msg / ${state.days} days`
+            ? `at ${formatMessages(state.messages)} in ${formatDays(state.days)}`
             : '';
-    const mark = state?.enabled ? ICONS.success : ICONS.failed;
-    return `${mark} **${RESET_TARGETS[key]}** — ${state?.enabled ? 'enabled' : 'disabled'}, ${roles} role(s)${detail ? `, ${detail}` : ''}`;
+
+    if (!state?.enabled && !roles) {
+      return `${ICONS.failed} **${RESET_TARGETS[key]}** — already off, nothing to clear`;
+    }
+
+    const mark = state?.enabled ? ICONS.success : ICONS.warning;
+    return `${mark} **${RESET_TARGETS[key]}** — ${state?.enabled ? 'on' : 'off'}, ${formatRoles(roles)}${detail ? `, ${detail}` : ''}`;
   });
 }
 
@@ -150,6 +184,18 @@ export function hasElapsed(joinedAt, days, now = Date.now()) {
 
 export function formatDays(days) {
   return days === 1 ? '1 day' : `${days} days`;
+}
+
+export function formatRoles(count) {
+  return count === 1 ? '1 role' : `${count} roles`;
+}
+
+export function formatMessages(count) {
+  return count === 1 ? '1 message' : `${count} messages`;
+}
+
+export function formatInvites(count) {
+  return count === 1 ? '1 invite' : `${count} invites`;
 }
 
 export async function loadAutoRoleConfig(guildId) {
