@@ -21,6 +21,8 @@ A simple, self-hosted Discord bot that joins a voice channel you're already in, 
 - [Guard System](#guard-system)
 - [Deployment](#deployment)
 - [Tech Stack](#tech-stack)
+- [Database](#database)
+- [Emoji](#emoji)
 - [Troubleshooting](#troubleshooting)
 
 ---
@@ -35,6 +37,7 @@ A simple, self-hosted Discord bot that joins a voice channel you're already in, 
 - `/help` with full usage documentation
 - Slash commands auto-register per guild on startup and the moment the bot joins a new server — instant, no waiting on global propagation
 - Bot's "About Me" profile bio is set automatically on every startup
+- Application emoji constants with a semantic alias layer, so UI code refers to meanings (`ICONS.success`) rather than emoji names
 
 ---
 
@@ -45,7 +48,8 @@ src/
 ├── index.js                   # Entry point — loads commands, events, logs in
 ├── client.js                  # Creates and configures the Discord client
 ├── config/
-│   └── config.js              # Bot-wide config (token, colors)
+│   ├── config.js              # Bot-wide config (token, colors)
+│   └── emojis.js              # Generated emoji constants + semantic ICONS layer
 ├── database/
 │   ├── database.js            # SQLite connection and schema
 │   └── repositories/          # Panel, auto-role, and member repositories
@@ -271,6 +275,48 @@ If you are upgrading from an earlier JSON-based version, migrate the old files o
 ```bash
 npm run migrate
 ```
+
+---
+
+## Emoji
+
+UI emoji live in the Discord **application** emoji slots, so they work in every guild the bot posts to without a per-guild upload. `src/config/emojis.js` mirrors them in four layers:
+
+| Export | Shape | Use |
+| ------ | ----- | --- |
+| `EMOJIS` | `name -> '<:name:id>'` | embeds and message text |
+| `EMOJI_IDS` | `name -> 'id'` | anywhere an ID is required |
+| `ICONS` | `meaning -> syntax` | **preferred in code** |
+| `ICON_IDS` | `meaning -> 'id'` | button `.setEmoji()` |
+
+One emoji usually covers several meanings, so code should reference the meaning rather than the emoji name:
+
+```js
+import { ICONS, ICON_IDS } from '#config/emojis';
+
+embed.setDescription(`${ICONS.success} Saved.`);
+new ButtonBuilder().setLabel('Delete').setEmoji(ICON_IDS.delete);
+```
+
+| Meaning group | Backing emoji | Covers |
+| ------------- | ------------- | ------ |
+| success | `verified` (green check) | success, ok, done, complete, approved, check, valid |
+| error | `failed` (red X) | error, failed, fail, denied |
+| reject | `exclamation` | cross, invalid, reject, no |
+| warning | `warning` (yellow triangle) | warning, warn, caution, alert, important |
+| progress | `loading` / `processing` | loading, waiting, pending, processing, working |
+| refresh | `captcha` (circular arrows) | refresh, reload, retry, sync, loop |
+| authority | `crown` | owner, admin, founder, premium, vip, boost |
+| moderation | `staff` (crossed hammers) | staff, mod, moderator, moderation, team |
+| security | `lock` / `ban` | lock, secure, private / ban, kick, offline |
+| dev | `code` `terminal` `cpu` `cloud` `deploy` `git` `bug` | code, console, memory, server, release, repo, debug |
+| ui | `link` `search` `edit` `delete` `plus` `mail` | invite, find, rename, remove, add, notification |
+
+Notes:
+
+- Aliases are assigned by **what the picture actually shows**, not by filename — e.g. `ban` is an unplugged plug, `captcha` is a refresh arrow, `cpu` is a brain.
+- `src/config/emojis.js` is generated from the **live** Discord emoji list. If emoji are renamed or deleted in the Developer Portal, regenerate it — otherwise every reference renders as a broken token.
+- `test/emojis.test.js` asserts that every alias resolves to a real emoji and that the aliases the code depends on exist, so a rename fails the test suite instead of the UI.
 
 ---
 

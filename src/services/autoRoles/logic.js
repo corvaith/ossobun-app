@@ -1,4 +1,5 @@
 import { PermissionFlagsBits } from 'discord.js';
+import { ICONS } from '#config/emojis';
 import { isSafeRole } from '#services/selfRoles/logic';
 import { autoRoleStore } from '#services/store';
 
@@ -117,7 +118,7 @@ export function resetFeatures(config, keys) {
 
 export function describeReset(config, keys) {
   return keys.map((key) => {
-    if (key === 'dmNotification') return `• **${RESET_TARGETS[key]}** → back to ON`;
+    if (key === 'dmNotification') return `${ICONS.mail} **${RESET_TARGETS[key]}** — back to ON`;
     const state = config[key];
     const roles = state?.roleIds?.length ?? 0;
     const detail =
@@ -128,7 +129,8 @@ export function describeReset(config, keys) {
           : key === 'activity'
             ? `${state.messages} msg / ${state.days} days`
             : '';
-    return `• **${RESET_TARGETS[key]}** — ${state?.enabled ? 'enabled' : 'disabled'}, ${roles} role(s)${detail ? `, ${detail}` : ''}`;
+    const mark = state?.enabled ? ICONS.success : ICONS.failed;
+    return `${mark} **${RESET_TARGETS[key]}** — ${state?.enabled ? 'enabled' : 'disabled'}, ${roles} role(s)${detail ? `, ${detail}` : ''}`;
   });
 }
 

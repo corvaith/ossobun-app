@@ -1,4 +1,5 @@
 import { PermissionFlagsBits } from 'discord.js';
+import { ICONS } from '#config/emojis';
 import { isSafeRole } from '#services/selfRoles/logic';
 import { logger } from '#utils/logger';
 
@@ -45,7 +46,7 @@ export async function grantRoles(
 }
 
 export async function notifyMember(member, roleNames, reason) {
-  const list = roleNames.map((name) => `• **${name}**`).join('\n');
+  const list = roleNames.map((name) => `${ICONS.success} **${name}**`).join('\n');
   const content = [
     `You received a new role in **${member.guild.name}**!`,
     '',

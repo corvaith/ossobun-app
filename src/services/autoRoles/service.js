@@ -10,6 +10,7 @@ import {
   TextInputStyle,
 } from 'discord.js';
 import { config as botConfig } from '#config/config';
+import { ICONS, ICON_IDS } from '#config/emojis';
 import {
   FEATURE_LABELS,
   LIMITS,
@@ -47,42 +48,51 @@ async function saveConfig(config) {
 
 function featureSummary(config, feature) {
   const state = config[feature];
-  if (!state.enabled) return '❌ Disabled';
-  const roleCount = state.roleIds.length;
-  if (!roleCount) return '⚠️ Enabled — no roles selected yet';
+  const roles = state.roleIds.length;
+  if (!state.enabled) return `${ICONS.failed} Disabled`;
+  if (!roles) return `${ICONS.warning} Enabled — no roles selected yet`;
 
   switch (feature) {
     case 'join':
-      return `✅ Enabled — ${roleCount} role(s) on join`;
+      return `${ICONS.success} Enabled — ${roles} role(s) on join`;
     case 'timed':
-      return `✅ Enabled — ${roleCount} role(s) after ${formatDays(state.days)}`;
+      return `${ICONS.success} Enabled — ${roles} role(s) after ${formatDays(state.days)}`;
     case 'invite':
-      return `✅ Enabled — ${roleCount} role(s) at ${state.count} invite(s)`;
+      return `${ICONS.success} Enabled — ${roles} role(s) at ${state.count} invite(s)`;
     case 'activity':
-      return `✅ Enabled — ${roleCount} role(s) at ${state.messages} msg / ${formatDays(state.days)}`;
+      return `${ICONS.success} Enabled — ${roles} role(s) at ${state.messages} msg / ${formatDays(state.days)}`;
     default:
-      return '✅ Enabled';
+      return `${ICONS.success} Enabled`;
   }
 }
+
+const FEATURE_ICONS = {
+  join: ICONS.link,
+  timed: ICONS.loading,
+  invite: ICONS.mail,
+  activity: ICONS.code,
+};
 
 function menuEmbed(config) {
   return new EmbedBuilder()
     .setColor(botConfig.colors.info)
-    .setTitle('Auto Role Setup')
+    .setTitle(`${ICONS.edit} Auto Role Setup`)
     .setDescription(
       [
         'Configure automatic roles for this server. Pick a feature below to set it up.',
         '',
-        `**1. ${FEATURE_LABELS.join}**\n${featureSummary(config, 'join')}`,
+        `${FEATURE_ICONS.join} **1. ${FEATURE_LABELS.join}**\n${featureSummary(config, 'join')}`,
         '',
-        `**2. ${FEATURE_LABELS.timed}**\n${featureSummary(config, 'timed')}`,
+        `${FEATURE_ICONS.timed} **2. ${FEATURE_LABELS.timed}**\n${featureSummary(config, 'timed')}`,
         '',
-        `**3. ${FEATURE_LABELS.invite}**\n${featureSummary(config, 'invite')}`,
+        `${FEATURE_ICONS.invite} **3. ${FEATURE_LABELS.invite}**\n${featureSummary(config, 'invite')}`,
         '',
-        `**4. ${FEATURE_LABELS.activity}**\n${featureSummary(config, 'activity')}`,
+        `${FEATURE_ICONS.activity} **4. ${FEATURE_LABELS.activity}**\n${featureSummary(config, 'activity')}`,
         '',
-        `**5. DM notification**\n${
-          config.dmNotification ? '✅ Members are DM’d when they get a role' : '❌ Disabled'
+        `${ICONS.mail} **5. DM notification**\n${
+          config.dmNotification
+            ? `${ICONS.success} Members are DM’d when they get a role`
+            : `${ICONS.failed} Disabled`
         }`,
       ].join('\n')
     )
@@ -95,28 +105,34 @@ function menuRows(config) {
       new ButtonBuilder()
         .setCustomId(`${PREFIX}open:join`)
         .setLabel('1. On join')
+        .setEmoji(ICON_IDS.link)
         .setStyle(config.join.enabled ? ButtonStyle.Success : ButtonStyle.Primary),
       new ButtonBuilder()
         .setCustomId(`${PREFIX}open:timed`)
         .setLabel('2. Time-based')
+        .setEmoji(ICON_IDS.loading)
         .setStyle(config.timed.enabled ? ButtonStyle.Success : ButtonStyle.Primary),
       new ButtonBuilder()
         .setCustomId(`${PREFIX}open:invite`)
         .setLabel('3. Invite-based')
+        .setEmoji(ICON_IDS.mail)
         .setStyle(config.invite.enabled ? ButtonStyle.Success : ButtonStyle.Primary),
       new ButtonBuilder()
         .setCustomId(`${PREFIX}open:activity`)
         .setLabel('4. Activity-based')
+        .setEmoji(ICON_IDS.code)
         .setStyle(config.activity.enabled ? ButtonStyle.Success : ButtonStyle.Primary)
     ),
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`${PREFIX}dm`)
         .setLabel(`5. DM notification: ${config.dmNotification ? 'ON' : 'OFF'}`)
+        .setEmoji(config.dmNotification ? ICON_IDS.success : ICON_IDS.failed)
         .setStyle(config.dmNotification ? ButtonStyle.Success : ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId(`${PREFIX}reset`)
         .setLabel('Reset settings')
+        .setEmoji(ICON_IDS.delete)
         .setStyle(ButtonStyle.Danger)
     ),
   ];
@@ -124,7 +140,9 @@ function menuRows(config) {
 
 function featureEmbed(config, feature) {
   const state = config[feature];
-  const lines = [`**Status:** ${state.enabled ? '✅ Enabled' : '❌ Disabled'}`];
+  const lines = [
+    `**Status:** ${state.enabled ? `${ICONS.success} Enabled` : `${ICONS.failed} Disabled`}`,
+  ];
 
   if (feature === 'timed') lines.push(`**Days required:** ${formatDays(state.days)}`);
   if (feature === 'invite') lines.push(`**Invites required:** ${state.count}`);
@@ -136,7 +154,7 @@ function featureEmbed(config, feature) {
   lines.push('', `**Roles (${state.roleIds.length}):**`);
   if (state.roleIds.length) {
     for (const id of state.roleIds) {
-      lines.push(`• ${roleLabel(config, id)}`);
+      lines.push(`${ICONS.check} ${roleLabel(config, id)}`);
     }
   } else {
     lines.push('_No roles selected._');
@@ -450,7 +468,11 @@ async function handleButton(interaction) {
           .setColor(botConfig.colors.success)
           .setTitle('Settings Reset')
           .setDescription(
-            ['Reset to defaults:', '', ...keys.map((key) => `• ${RESET_TARGETS[key]}`)].join('\n')
+            [
+              'Reset to defaults:',
+              '',
+              ...keys.map((key) => `${ICONS.delete} ${RESET_TARGETS[key]}`),
+            ].join('\n')
           ),
       ],
       components: [
