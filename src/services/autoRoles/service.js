@@ -14,6 +14,7 @@ import { ICONS, ICON_IDS } from '#config/emojis';
 import {
   DM_DESCRIPTION,
   DM_LABEL,
+  FEATURES,
   FEATURE_META,
   LIMITS,
   RESET_TARGETS,
@@ -254,26 +255,25 @@ function featureRows(config, feature) {
   return rows;
 }
 
+export function renderMenu(config) {
+  return { embeds: [menuEmbed(config)], components: menuRows(config) };
+}
+
 async function showMenu(interaction, edit = false) {
   const config = await loadConfig(interaction.guildId);
-  const payload = {
-    embeds: [menuEmbed(config)],
-    components: menuRows(config),
-    allowedMentions: mentions,
-  };
+  const payload = { ...renderMenu(config), allowedMentions: mentions };
   if (edit) return interaction.update(payload);
   return interaction.reply({ ...payload, ephemeral: true });
 }
 
-async function showResetPicker(interaction, edit = false) {
-  const config = await loadConfig(interaction.guildId);
+export function renderResetPicker(config) {
   const active = RESET_KEYS.filter((key) =>
     key === 'dmNotification'
       ? !config.dmNotification
       : config[key]?.enabled || config[key]?.roleIds?.length
   );
 
-  const payload = {
+  return {
     embeds: [
       new EmbedBuilder()
         .setColor(botConfig.colors.error)
@@ -316,16 +316,19 @@ async function showResetPicker(interaction, edit = false) {
           .setStyle(ButtonStyle.Secondary)
       ),
     ],
-    allowedMentions: mentions,
   };
+}
+
+async function showResetPicker(interaction, edit = false) {
+  const config = await loadConfig(interaction.guildId);
+  const payload = { ...renderResetPicker(config), allowedMentions: mentions };
 
   if (edit) return interaction.update(payload);
   return interaction.reply({ ...payload, ephemeral: true });
 }
 
-async function showResetConfirm(interaction, keys) {
-  const config = await loadConfig(interaction.guildId);
-  const payload = {
+export function renderResetConfirm(config, keys) {
+  return {
     embeds: [
       new EmbedBuilder()
         .setColor(botConfig.colors.error)
@@ -354,19 +357,25 @@ async function showResetConfirm(interaction, keys) {
           .setStyle(ButtonStyle.Secondary)
       ),
     ],
-    allowedMentions: mentions,
   };
-  return interaction.update(payload);
+}
+
+async function showResetConfirm(interaction, keys) {
+  const config = await loadConfig(interaction.guildId);
+  return interaction.update({
+    ...renderResetConfirm(config, keys),
+    allowedMentions: mentions,
+  });
+}
+
+export function renderFeature(config, feature) {
+  return { embeds: [featureEmbed(config, feature)], components: featureRows(config, feature) };
 }
 
 async function showFeature(interaction, feature, edit = false) {
   const config = await loadConfig(interaction.guildId);
   await decorateRoleNames(config, interaction.guild);
-  const payload = {
-    embeds: [featureEmbed(config, feature)],
-    components: featureRows(config, feature),
-    allowedMentions: mentions,
-  };
+  const payload = { ...renderFeature(config, feature), allowedMentions: mentions };
   if (edit) return interaction.update(payload);
   return interaction.reply({ ...payload, ephemeral: true });
 }
