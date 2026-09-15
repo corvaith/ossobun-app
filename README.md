@@ -23,6 +23,8 @@ A simple, self-hosted Discord bot that joins a voice channel you're already in, 
 - [Tech Stack](#tech-stack)
 - [Database](#database)
 - [Emoji](#emoji)
+- [AutoMod](#automod)
+- [Greetings](#greetings)
 - [Troubleshooting](#troubleshooting)
 
 ---
@@ -91,6 +93,8 @@ src/
 | `/role setup` | Administrators create a guided, persistent self-role panel with role and channel selectors. |
 | `/role update` | Administrators update, republish, or delete the guild's self-role panel. |
 | `/autorole` | Administrators set up automatic roles: on join, after N days, at N invites, or for active members. |
+| `/automod` | Administrators set up spam filters: message, image, mention, link, invite, caps and repeated messages. |
+| `/greetings` | Administrators set up welcome, farewell, ban and join DM messages, as plain text or an embed. |
 
 ---
 
@@ -117,6 +121,56 @@ Notes:
 - Roles that are managed, privileged, `@everyone`, or above the bot's highest role are rejected automatically.
 - **On join** and **time-based** roles require the privileged **Server Members Intent**. Enable it in the Developer Portal under Bot → Privileged Gateway Intents. Without it, the bot still runs and the other features work, but those two stay dormant.
 - Invite tracking also requires the **Manage Server** permission on the bot.
+
+---
+
+## AutoMod
+
+`/automod` opens an administrator-only menu with seven rules. Settings persist in the `automod_configs` table.
+
+| # | Rule | Catches |
+| - | ---- | ------- |
+| 1 | **Message Spam** | Many messages in a very short time (default 5 per 5 seconds). |
+| 2 | **Image Spam** | A burst of attachments and embeds (default 5 per 30 seconds). |
+| 3 | **Mention Spam** | Mass-pinging in a single message (default 5 mentions). |
+| 4 | **Link Spam** | Links posted faster than the limit (default 2 per 10 seconds). |
+| 5 | **Invite Spam** | Any Discord invite posted by a member. |
+| 6 | **Excessive Caps** | Messages that are mostly SHOUTING (default 70% caps over 12 letters). |
+| 7 | **Repeated Messages** | The same message posted over and over (default 3 per 60 seconds). |
+
+Every rule is rate-based rather than a plain keyword filter, because spam is about frequency. Each one also carries its own **punishment chain**, chosen from delete, warn, timeout, kick and ban — they run in the order shown, so you can escalate `delete → warn → timeout` instead of always removing the member.
+
+Timeout, kick and ban are skipped for administrators and for anyone whose highest role sits above the bot's, so the rules can never be turned against your staff.
+
+**Log channel** — set one and every incident is reported there with the member, channel, actions taken and a snippet of the message.
+
+**Ignored** — pick channels and roles to exempt. Their messages are skipped entirely and never counted toward rate limits, which is what you want for staff rooms and announcement feeds.
+
+---
+
+## Greetings
+
+`/greetings` opens an administrator-only menu with four messages. Settings persist in the `greeting_configs` table.
+
+| # | Message | Sent |
+| - | ------- | ---- |
+| 1 | **Welcome Message** | In a channel when someone joins. |
+| 2 | **Farewell Message** | In a channel when someone leaves. |
+| 3 | **Ban Notice** | In a channel when someone is banned. |
+| 4 | **Join DM** | Privately to the member the moment they join. |
+
+Each one can be sent as a **plain message** or an **embed**, switchable per greeting. Embeds get a title, a description and a colour.
+
+Messages support these variables, substituted automatically:
+
+| Variable | Becomes |
+| -------- | ------- |
+| `{user}` | The member name |
+| `{mention}` | Pings the member |
+| `{server}` | The server name |
+| `{count}` | Total member count |
+| `{id}` | The member ID |
+| `{avatar}` | The member avatar (embed style only) |
 
 ---
 
@@ -151,10 +205,15 @@ cp .env.example .env
 
 **Required bot intents** (Developer Portal → Bot → Privileged Gateway Intents):
 
-- **Server Members Intent** — privileged. Required for on-join and time-based auto roles. If it is off, the bot logs a warning and starts without it.
-- `Guilds`, `Guild Voice States`, `Guild Invites`, and `Guild Messages` are non-privileged and always requested.
+| Intent | Needed for |
+| ------ | ---------- |
+| **Server Members Intent** (privileged) | On-join roles, time-based roles, welcome/farewell/ban greetings |
+| **Message Content Intent** (privileged) | AutoMod, activity-based roles |
+| `Guilds`, `Guild Voice States`, `Guild Invites`, `Guild Messages`, `Guild Moderation` | non-privileged, always requested |
 
-**Required bot permissions in Discord:** `Connect` in voice channels for `/afk`; `Manage Roles` for self-role panels and auto roles; `Manage Server` for invite tracking. The bot's highest role must be above every role it assigns.
+Both privileged intents are optional: the bot walks a ladder of intent sets and starts with as much as the portal allows, logging which one it settled on. With neither enabled it still runs, but AutoMod and greetings stay dormant.
+
+**Required bot permissions in Discord:** `Connect` in voice channels for `/afk`; `Manage Roles` for self-role panels and auto roles; `Manage Server` for invite tracking; `Moderate Members` plus `Kick Members` and `Ban Members` for AutoMod punishments. The bot's highest role must be above every role it assigns and above every member it moderates.
 
 ### Running the Bot
 

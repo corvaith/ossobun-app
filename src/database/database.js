@@ -53,6 +53,29 @@ CREATE TABLE IF NOT EXISTS voice_sessions (
   channel_id TEXT NOT NULL,
   created_at INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS automod_configs (
+  guild_id TEXT PRIMARY KEY,
+  config TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS greeting_configs (
+  guild_id TEXT PRIMARY KEY,
+  config TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS automod_cases (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  guild_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  rule TEXT NOT NULL,
+  action TEXT NOT NULL,
+  detail TEXT NOT NULL DEFAULT '',
+  created_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_automod_cases_lookup
+  ON automod_cases (guild_id, user_id, created_at);
 `;
 
 export function createDatabase(file = path.resolve('data/ossobun.db')) {

@@ -1,4 +1,6 @@
 import { handleAutoRoleInteraction } from '#services/autoRoles/service';
+import { handleAutoModInteraction } from '#services/automod/service';
+import { handleGreetingInteraction } from '#services/greetings/service';
 import { handleSelfRoleInteraction } from '#services/selfRoles/service';
 import { GuardError } from '#structures/guards';
 import { errorEmbed } from '#utils/embeds';
@@ -17,6 +19,8 @@ export async function execute(interaction, client) {
       interaction.isModalSubmit()
     ) {
       if (await handleAutoRoleInteraction(interaction)) return;
+      if (await handleAutoModInteraction(interaction)) return;
+      if (await handleGreetingInteraction(interaction)) return;
       await handleSelfRoleInteraction(interaction);
     }
     return;

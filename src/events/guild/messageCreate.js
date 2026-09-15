@@ -1,5 +1,6 @@
 import { Events } from 'discord.js';
 import { grantRoles } from '#services/autoRoles/assign';
+import { handleMessage as runAutoMod } from '#services/automod/engine';
 import { autoRoleStore, memberStore } from '#services/store';
 import { logger } from '#utils/logger';
 
@@ -9,6 +10,14 @@ export const once = false;
 export async function execute(message, client) {
   if (message.author.bot || !message.guild) return;
 
+  // AutoMod runs first and can remove the message; activity tracking still
+  // counts it afterwards because the member did send something.
+  await runAutoMod(message).catch((error) => logger.warn(`[automod] ${error.message}`));
+
+  await trackActivity(message);
+}
+
+async function trackActivity(message) {
   const guildId = message.guild.id;
   const config = await autoRoleStore.get(guildId);
   if (!config.activity.enabled || !config.activity.roleIds.length) return;

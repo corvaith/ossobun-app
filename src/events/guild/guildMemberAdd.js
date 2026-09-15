@@ -1,6 +1,7 @@
 import { Events } from 'discord.js';
 import { grantRoles } from '#services/autoRoles/assign';
 import { findUsedInvites } from '#services/autoRoles/logic';
+import { sendJoinDm, sendWelcome } from '#services/greetings/engine';
 import { autoRoleStore, memberStore } from '#services/store';
 import { logger } from '#utils/logger';
 
@@ -27,6 +28,10 @@ export async function execute(member, client) {
       logger.warn(`[invite] Tracking failed for ${member.id}: ${error.message}`)
     );
   }
+
+  // Greetings run last so a role or invite failure never blocks the welcome.
+  await sendWelcome(guild, member);
+  await sendJoinDm(guild, member);
 }
 
 async function trackInviteJoin(member, config) {

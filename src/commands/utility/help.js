@@ -18,6 +18,8 @@ export const { data, execute, meta } = new CommandBuilder()
         '`/role setup` — Administrators create a guided self-role panel using Discord role/channel selectors.',
         '`/role update` — Administrators edit, republish, or delete the self-role panel.',
         '`/autorole` — Administrators set up automatic roles (join, time-based, invite-based, activity-based).',
+        '`/automod` — Administrators set up spam filters: message spam, image spam, mention spam, link spam, invite spam, caps and repeats.',
+        '`/greetings` — Administrators set up welcome, farewell, ban and join DM messages, as a plain message or an embed.',
         '`/help` — Show this message.',
       ].join('\n')
     );
