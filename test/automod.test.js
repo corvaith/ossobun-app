@@ -274,3 +274,82 @@ test('a config survives a JSON round trip', () => {
   assert.equal(restored.spam.count, 8);
   assert.deepEqual(restored.ignoredChannelIds, ['123456789']);
 });
+
+test('a burst spread across several channels still counts as one burst', () => {
+  // History is per member across the whole guild, so posting one message into
+  // every channel cannot dodge the spam limit.
+  const config = emptyConfig('g1');
+  config.spam.enabled = true;
+  config.spam.count = 5;
+  config.spam.seconds = 5;
+
+  const now = Date.now();
+  const broadcast = Array.from({ length: 5 }, (_, index) => ({
+    at: now - index * 50,
+    channelId: String(1000 + index),
+    text: 'buy my stuff',
+    images: 0,
+    link: false,
+    invite: false,
+  }));
+
+  assert.equal(matches('spam', config, fakeMessage('buy my stuff'), broadcast, now), true);
+});
+
+test('the same message repeated in different channels counts as repeats', () => {
+  const config = emptyConfig('g1');
+  config.duplicates.enabled = true;
+  config.duplicates.count = 3;
+  config.duplicates.seconds = 60;
+
+  const now = Date.now();
+  const text = normalizeText('join my server');
+  const broadcast = [
+    { at: now - 100, channelId: '1', text },
+    { at: now - 200, channelId: '2', text },
+  ];
+
+  assert.equal(matches('duplicates', config, fakeMessage('join my server'), broadcast, now), true);
+});
+
+test('images posted across channels add up', () => {
+  const config = emptyConfig('g1');
+  config.images.enabled = true;
+  config.images.count = 5;
+  config.images.seconds = 30;
+
+  const now = Date.now();
+  const spread = [
+    { at: now - 100, channelId: '1', images: 2 },
+    { at: now - 200, channelId: '2', images: 2 },
+  ];
+
+  assert.equal(matches('images', config, fakeMessage('', { images: 1 }), spread, now), true);
+});
+
+test('links posted across channels add up', () => {
+  const config = emptyConfig('g1');
+  config.links.enabled = true;
+  config.links.count = 3;
+  config.links.seconds = 10;
+
+  const now = Date.now();
+  const spread = [
+    { at: now - 100, channelId: '1', link: true },
+    { at: now - 200, channelId: '2', link: true },
+  ];
+
+  assert.equal(matches('links', config, fakeMessage('https://x.com'), spread, now), true);
+});
+
+test('a slow trickle of messages never trips spam', () => {
+  const config = emptyConfig('g1');
+  config.spam.enabled = true;
+  config.spam.count = 5;
+  config.spam.seconds = 5;
+
+  const now = Date.now();
+  // Five messages, but spread over a minute — under the rate limit.
+  const slow = Array.from({ length: 5 }, (_, index) => ({ at: now - index * 12_000 }));
+  assert.equal(matches('spam', config, fakeMessage('hello'), slow, now), false);
+});

@@ -199,7 +199,8 @@ export function capsRatio(content) {
 
 /**
  * Counts how many messages in the window break a given rule.
- * `history` is newest-last and must already be scoped to one member + channel.
+ * `history` is newest-last and scoped to one member across the whole guild, so a
+ * burst spread over several channels counts as one burst.
  */
 export function countInWindow(history, now, seconds) {
   const since = now - seconds * 1000;

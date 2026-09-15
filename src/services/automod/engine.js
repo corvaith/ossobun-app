@@ -14,31 +14,40 @@ import { autoModStore } from '#services/store';
 import { logger } from '#utils/logger';
 
 /**
- * Recent message history per member+channel, used for rate-based rules.
- * Kept in memory because it only ever needs a short window (seconds to a few
- * minutes) and losing it on restart is harmless.
+ * Recent message history per member, used for rate-based rules.
+ *
+ * Keyed by guild + member, NOT by channel. A spammer's fastest trick is to post
+ * one message into every channel they can reach, and per-channel counting sees
+ * a single harmless message in each one. Counting across the whole guild catches
+ * that, and it still catches ordinary in-channel flooding because a per-channel
+ * burst is a subset of the guild-wide total.
+ *
+ * Kept in memory because it only ever needs a short window (seconds to minutes)
+ * and losing it on restart is harmless.
  */
 const HISTORY_TTL = 10 * 60 * 1000;
 const histories = new Map();
 
-function key(guildId, channelId, userId) {
-  return `${guildId}:${channelId}:${userId}`;
+function key(guildId, userId) {
+  return `${guildId}:${userId}`;
 }
 
 function pushHistory(guildId, message, entry) {
-  const mapKey = key(guildId, message.channelId, message.author.id);
+  const mapKey = key(guildId, message.author.id);
   const list = histories.get(mapKey) ?? [];
   list.push(entry);
 
   const cutoff = entry.at - HISTORY_TTL;
-  const trimmed = list.filter((item) => item.at >= cutoff);
-  histories.set(mapKey, trimmed);
+  histories.set(
+    mapKey,
+    list.filter((item) => item.at >= cutoff)
+  );
 
   if (histories.size > 5000) sweep();
 }
 
 function getHistory(guildId, message) {
-  const list = histories.get(key(guildId, message.channelId, message.author.id)) ?? [];
+  const list = histories.get(key(guildId, message.author.id)) ?? [];
   const cutoff = Date.now() - HISTORY_TTL;
   return list.filter((entry) => entry.at >= cutoff);
 }
