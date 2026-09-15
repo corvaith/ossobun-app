@@ -6,6 +6,7 @@ import {
   RULES,
   RULE_META,
   actionSummary,
+  affectedMessages,
   capsRatio,
   clampInt,
   countImages,
@@ -352,4 +353,111 @@ test('a slow trickle of messages never trips spam', () => {
   // Five messages, but spread over a minute — under the rate limit.
   const slow = Array.from({ length: 5 }, (_, index) => ({ at: now - index * 12_000 }));
   assert.equal(matches('spam', config, fakeMessage('hello'), slow, now), false);
+});
+
+test('a caught image burst lists every image for removal', () => {
+  const config = emptyConfig('g1');
+  config.images.enabled = true;
+  config.images.count = 5;
+  config.images.seconds = 30;
+
+  const now = Date.now();
+  const history = Array.from({ length: 5 }, (_, index) => ({
+    at: now - index * 100,
+    messageId: `old-${index}`,
+    channelId: '100',
+    images: 1,
+    text: '',
+    link: false,
+  }));
+
+  const current = fakeMessage('', { images: 1 });
+  current.id = 'new';
+  current.channelId = '100';
+
+  const targets = affectedMessages('images', history, current, config.images, now);
+  assert.equal(targets.length, 6, 'all six images should be removed, not just the last one');
+  assert.equal(targets.at(-1).messageId, 'new');
+  assert.ok(targets.some((t) => t.messageId === 'old-4'));
+});
+
+test('a caught burst never deletes messages that carried no image', () => {
+  const config = emptyConfig('g1');
+  config.images.enabled = true;
+  config.images.count = 3;
+  config.images.seconds = 30;
+
+  const now = Date.now();
+  const history = [
+    { at: now - 100, messageId: 'img-1', channelId: '100', images: 1, text: '' },
+    { at: now - 200, messageId: 'text-1', channelId: '100', images: 0, text: 'hello' },
+    { at: now - 300, messageId: 'img-2', channelId: '100', images: 1, text: '' },
+  ];
+
+  const current = fakeMessage('', { images: 1 });
+  current.id = 'img-3';
+  current.channelId = '100';
+
+  const ids = affectedMessages('images', history, current, config.images, now).map(
+    (t) => t.messageId
+  );
+  assert.deepEqual(ids.sort(), ['img-1', 'img-2', 'img-3']);
+  assert.ok(!ids.includes('text-1'), 'a plain text message must survive an image purge');
+});
+
+test('burst removal reaches across channels', () => {
+  const config = emptyConfig('g1');
+  config.spam.enabled = true;
+  config.spam.count = 3;
+  config.spam.seconds = 5;
+
+  const now = Date.now();
+  const history = [
+    { at: now - 100, messageId: 'm1', channelId: 'a' },
+    { at: now - 200, messageId: 'm2', channelId: 'b' },
+  ];
+
+  const current = fakeMessage('spam');
+  current.id = 'm3';
+  current.channelId = 'c';
+
+  const targets = affectedMessages('spam', history, current, config.spam, now);
+  assert.deepEqual(targets.map((t) => t.channelId).sort(), ['a', 'b', 'c']);
+});
+
+test('single-message rules only ever target the one message', () => {
+  const config = emptyConfig('g1');
+  const now = Date.now();
+  const history = [{ at: now - 100, messageId: 'old', channelId: '100' }];
+
+  const current = fakeMessage('@a @b @c @d @e');
+  current.id = 'now';
+  current.channelId = '100';
+
+  for (const rule of ['mentions', 'invites', 'caps']) {
+    config[rule].enabled = true;
+    const targets = affectedMessages(rule, history, current, config[rule], now);
+    assert.equal(targets.length, 1, `${rule} should only touch the current message`);
+    assert.equal(targets[0].messageId, 'now');
+  }
+});
+
+test('burst removal skips history entries with no message id', () => {
+  const config = emptyConfig('g1');
+  config.spam.enabled = true;
+  config.spam.count = 2;
+  config.spam.seconds = 5;
+
+  const now = Date.now();
+  const history = [{ at: now - 100, messageId: 'm1', channelId: 'a' }, { at: now - 200 }];
+
+  const current = fakeMessage('spam');
+  current.id = 'm2';
+  current.channelId = 'a';
+
+  const targets = affectedMessages('spam', history, current, config.spam, now);
+  assert.deepEqual(
+    targets.map((t) => t.messageId),
+    ['m1', 'm2']
+  );
 });

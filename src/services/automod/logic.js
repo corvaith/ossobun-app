@@ -255,6 +255,39 @@ export function normalizeText(content) {
   return (content ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
+/**
+ * Lists the messages that belong to the burst a rule just caught, so the whole
+ * burst can be removed instead of only the message that tripped the limit.
+ *
+ * A member who dumps six images should lose all six, not just the last one.
+ * Single-message rules (mention, invite, caps) only ever affect the message in
+ * hand, because there is no burst to clean up.
+ */
+export function affectedMessages(rule, history, message, state, now) {
+  const current = { channelId: message.channelId, messageId: message.id };
+  const inWindow = history.filter((entry) => entry.at >= now - (state.seconds ?? 0) * 1000);
+
+  const pick = (entries) =>
+    entries
+      .filter((entry) => entry.messageId && entry.channelId)
+      .map((entry) => ({ channelId: entry.channelId, messageId: entry.messageId }));
+
+  switch (rule) {
+    case 'spam':
+      return [...pick(inWindow), current];
+    case 'images':
+      return [...pick(inWindow.filter((entry) => (entry.images ?? 0) > 0)), current];
+    case 'links':
+      return [...pick(inWindow.filter((entry) => entry.link)), current];
+    case 'duplicates': {
+      const normalized = normalizeText(message.content);
+      return [...pick(inWindow.filter((entry) => entry.text === normalized)), current];
+    }
+    default:
+      return [current];
+  }
+}
+
 /** Returns the first rule that the message trips, or null. */
 export function evaluate(config, message, history, now) {
   for (const rule of RULES) {

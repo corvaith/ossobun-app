@@ -3,6 +3,7 @@ import { ICONS } from '#config/emojis';
 import {
   LIMITS,
   RULE_META,
+  affectedMessages,
   countImages,
   evaluate,
   hasInvite,
@@ -73,7 +74,34 @@ async function canModerate(guild, member) {
   return me.roles.highest.position > member.roles.highest.position;
 }
 
-async function applyActions(message, rule, config) {
+/** Removes every message in the burst, not just the one that tripped the limit. */
+async function deleteBurst(rule, message, history, state, client) {
+  const targets = affectedMessages(rule, history, message, state, Date.now());
+  const seen = new Set();
+  let deleted = 0;
+
+  for (const target of targets) {
+    const dedupe = `${target.channelId}:${target.messageId}`;
+    if (seen.has(dedupe)) continue;
+    seen.add(dedupe);
+
+    const channel = client.channels.cache.get(target.channelId);
+    if (!channel?.isTextBased()) continue;
+
+    const target_ =
+      target.messageId === message.id
+        ? message
+        : await channel.messages.fetch(target.messageId).catch(() => null);
+    if (!target_) continue;
+
+    await target_.delete().catch(() => null);
+    deleted += 1;
+  }
+
+  return deleted;
+}
+
+async function applyActions(message, rule, config, history, client) {
   const guild = message.guild;
   const member = message.member ?? (await guild.members.fetch(message.author.id).catch(() => null));
   const state = config[rule];
@@ -82,8 +110,8 @@ async function applyActions(message, rule, config) {
   for (const action of state.actions) {
     try {
       if (action === 'delete') {
-        await message.delete().catch(() => null);
-        applied.push('delete');
+        const count = await deleteBurst(rule, message, history, state, client);
+        applied.push(count > 1 ? `delete x${count}` : 'delete');
       } else if (action === 'warn') {
         await member
           ?.send({
@@ -140,7 +168,7 @@ async function logCase(message, rule, applied) {
 }
 
 /** Entry point called from messageCreate. Returns true when it acted. */
-export async function handleMessage(message) {
+export async function handleMessage(message, client) {
   if (message.author.bot || !message.guild) return false;
 
   const guildId = message.guild.id;
@@ -157,6 +185,8 @@ export async function handleMessage(message) {
 
   pushHistory(guildId, message, {
     at: now,
+    messageId: message.id,
+    channelId: message.channelId,
     images: countImages(message),
     link: hasLink(message.content),
     invite: hasInvite(message.content),
@@ -165,7 +195,7 @@ export async function handleMessage(message) {
 
   if (!rule) return false;
 
-  const applied = await applyActions(message, rule, config);
+  const applied = await applyActions(message, rule, config, history, client);
   await autoModStore.recordCase(guildId, message.author.id, rule, applied.join('+'));
   await logCase(message, rule, applied);
 

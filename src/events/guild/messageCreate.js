@@ -12,7 +12,7 @@ export async function execute(message, client) {
 
   // AutoMod runs first and can remove the message; activity tracking still
   // counts it afterwards because the member did send something.
-  await runAutoMod(message).catch((error) => logger.warn(`[automod] ${error.message}`));
+  await runAutoMod(message, client).catch((error) => logger.warn(`[automod] ${error.message}`));
 
   await trackActivity(message);
 }
